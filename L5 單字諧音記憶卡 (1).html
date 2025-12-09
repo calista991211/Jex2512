@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>L5 單字諧音記憶</title>
+  <style>
+      :root {
+          --primary: #e17055; /* Orange for movement */
+          --secondary: #fab1a0;
+          --bg: #dfe6e9;
+          --card-bg: #ffffff;
+          --text: #2d3436;
+      }
+
+      body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          background: var(--bg);
+          margin: 0;
+          padding: 10px;
+          display: flex;
+          flex-direction: column;
+          height: 100vh;
+          box-sizing: border-box;
+      }
+
+      .header {
+          text-align: center;
+          margin-bottom: 15px;
+      }
+
+      .filter-bar {
+          display: flex;
+          gap: 10px;
+          overflow-x: auto;
+          padding-bottom: 10px;
+          scrollbar-width: none;
+      }
+
+      .filter-btn {
+          background: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 20px;
+          font-weight: bold;
+          color: #636e72;
+          white-space: nowrap;
+          cursor: pointer;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+          transition: all 0.2s;
+      }
+
+      .filter-btn.active {
+          background: var(--primary);
+          color: white;
+      }
+
+      .cards-container {
+          flex: 1;
+          overflow-y: auto;
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 15px;
+          padding-bottom: 20px;
+      }
+
+      .card {
+          background: var(--card-bg);
+          border-radius: 15px;
+          height: 240px;
+          perspective: 1000px;
+          cursor: pointer;
+          position: relative;
+      }
+
+      .card-inner {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          text-align: center;
+          transition: transform 0.6s;
+          transform-style: preserve-3d;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+          border-radius: 15px;
+      }
+
+      .card.flipped .card-inner {
+          transform: rotateY(180deg);
+      }
+
+      .card-face {
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          backface-visibility: hidden;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          border-radius: 15px;
+          padding: 15px;
+          box-sizing: border-box;
+      }
+
+      .card-front {
+          background: white;
+          border: 2px solid #eee;
+      }
+
+      .card-back {
+          background: #fdfdfd;
+          transform: rotateY(180deg);
+          border: 2px solid var(--secondary);
+      }
+
+      .emoji {
+          font-size: 3.5em;
+          margin-bottom: 10px;
+      }
+
+      .ja-word {
+          font-size: 2em;
+          font-weight: 800;
+          color: var(--text);
+      }
+
+      .ja-kana {
+          color: #636e72;
+          margin-top: 5px;
+          font-size: 1.1em;
+      }
+
+      .meaning {
+          font-size: 1.5em;
+          font-weight: bold;
+          color: var(--primary);
+          margin-bottom: 15px;
+          background: #ffeaa7;
+          padding: 5px 15px;
+          border-radius: 10px;
+      }
+
+      .mnemonic-box {
+          background: #f1f2f6;
+          padding: 12px;
+          border-radius: 8px;
+          width: 100%;
+          text-align: left;
+          font-size: 1em;
+          line-height: 1.5;
+      }
+
+      .highlight {
+          color: #d63031;
+          font-weight: bold;
+          background: rgba(255, 118, 117, 0.1);
+          padding: 0 2px;
+      }
+
+      .tag {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          font-size: 0.7em;
+          padding: 4px 8px;
+          border-radius: 10px;
+          background: #eee;
+          color: #555;
+      }
+
+      .audio-icon {
+          position: absolute;
+          bottom: 10px;
+          right: 10px;
+          font-size: 1.2em;
+          color: var(--primary);
+          z-index: 10;
+      }
+
+  </style>
+</head>
+<body>
+
+  <div class="header">
+      <h2 style="margin:0; color: var(--text);">L5 單字諧音通</h2>
+      <p style="margin:5px 0; font-size:0.9em; color:#636e72;">點擊卡片翻面看故事</p>
+  </div>
+
+  <div class="filter-bar">
+      <button class="filter-btn active" onclick="filter('all')">全部</button>
+      <button class="filter-btn" onclick="filter('verb')">動詞/移動</button>
+      <button class="filter-btn" onclick="filter('vehicle')">交通工具</button>
+      <button class="filter-btn" onclick="filter('date')">日期/其他</button>
+  </div>
+
+  <div class="cards-container" id="container">
+      <!-- Cards injected by JS -->
+  </div>
+
+  <script>
+      const vocabData = [
+          // --- 動詞/移動 (Verbs) ---
+          {
+              type: 'verb',
+              ja: 'いきます',
+              kana: '行きます',
+              mean: '去',
+              emoji: '🚶',
+              story: '<span class="highlight">一</span> (I) <span class="highlight">起</span> (Ki)。一起去吧！'
+          },
+          {
+              type: 'verb',
+              ja: 'きます',
+              kana: '来ます',
+              mean: '來',
+              emoji: '👋',
+              story: '<span class="highlight">Ki</span> (Ki) 蒂貓。Hello Kitty 來了！'
+          },
+          {
+              type: 'verb',
+              ja: 'かえります',
+              kana: '帰ります',
+              mean: '回家',
+              emoji: '🏠',
+              story: '<span class="highlight">卡</span> (Ka) <span class="highlight">耶</span> (E) <span class="highlight">裡</span> (Ri)。卡片耶！藏在鞋子裡帶回家。'
+          },
+          {
+              type: 'verb',
+              ja: 'がっこう',
+              kana: '学校',
+              mean: '學校',
+              emoji: '🏫',
+              story: '<span class="highlight">尬</span> (Ga) <span class="highlight">口</span> (Kkou)。在學校尬一口飯。'
+          },
+          {
+              type: 'verb',
+              ja: 'スーパー',
+              kana: '',
+              mean: '超市',
+              emoji: '🛒',
+              story: '英文 Supermarket (蘇趴)。超市東西超多，蘇趴好逛。'
+          },
+          {
+              type: 'verb',
+              ja: 'えき',
+              kana: '駅',
+              mean: '車站',
+              emoji: '🚉',
+              story: '<span class="highlight">ㄟ</span> (E) <span class="highlight">氣</span> (Ki)。錯過車站，ㄟ！好生氣！'
+          },
+
+          // --- 交通工具 (Vehicles) ---
+          {
+              type: 'vehicle',
+              ja: 'ひこうき',
+              kana: '飛行機',
+              mean: '飛機',
+              emoji: '✈️',
+              story: '<span class="highlight">希</span> (Hi) <span class="highlight">扣</span> (Kou) <span class="highlight">機</span> (Ki)。希望扣上安全帶，飛機要起飛了。'
+          },
+          {
+              type: 'vehicle',
+              ja: 'ふね',
+              kana: '船',
+              mean: '船',
+              emoji: '🚢',
+              story: '<span class="highlight">呼</span> (Fu) <span class="highlight">捏</span> (Ne)。在船上呼呼大睡，臉被捏。'
+          },
+          {
+              type: 'vehicle',
+              ja: 'でんしゃ',
+              kana: '電車',
+              mean: '電車',
+              emoji: '🚃',
+              story: '<span class="highlight">點</span> (Den) <span class="highlight">蝦</span> (Sha)。坐電車去點一盤蝦子。'
+          },
+          {
+              type: 'vehicle',
+              ja: 'ちかてつ',
+              kana: '地下鉄',
+              mean: '地下鐵',
+              emoji: '🚇',
+              story: '<span class="highlight">七</span> (Chi) <span class="highlight">卡</span> (Ka) <span class="highlight">貼</span> (Te) <span class="highlight">粗</span> (Tsu)。地下鐵有七張卡片貼在粗柱子上。'
+          },
+          {
+              type: 'vehicle',
+              ja: 'しんかんせん',
+              kana: '新幹線',
+              mean: '新幹線',
+              emoji: '🚅',
+              story: '<span class="highlight">心</span> (Shin) <span class="highlight">看</span> (Kan) <span class="highlight">線</span> (Sen)。用心看著新幹線的線路。'
+          },
+          {
+              type: 'vehicle',
+              ja: 'バス',
+              kana: '',
+              mean: '公車',
+              emoji: '🚌',
+              story: '英文 Bus (巴士)。'
+          },
+          {
+              type: 'vehicle',
+              ja: 'タクシー',
+              kana: '',
+              mean: '計程車',
+              emoji: '🚕',
+              story: '英文 Taxi (他哭吸)。坐計程車太貴，他哭著吸鼻涕。'
+          },
+          {
+              type: 'vehicle',
+              ja: 'じてんしゃ',
+              kana: '自転車',
+              mean: '腳踏車',
+              emoji: '🚲',
+              story: '<span class="highlight">雞</span> (Ji) <span class="highlight">天</span> (Ten) <span class="highlight">蝦</span> (Sha)。騎腳踏車載著雞和天婦羅炸蝦。'
+          },
+          {
+              type: 'vehicle',
+              ja: 'あるいて',
+              kana: '歩いて',
+              mean: '走路',
+              emoji: '🚶',
+              story: '<span class="highlight">阿</span> (A) <span class="highlight">路</span> (Ru) <span class="highlight">依</span> (I) <span class="highlight">貼</span> (Te)。阿！走路要依著路邊貼著走。'
+          },
+
+          // --- 日期/其他 (Date/Other) ---
+          {
+              type: 'date',
+              ja: 'ひと',
+              kana: '人',
+              mean: '人',
+              emoji: '👤',
+              story: '<span class="highlight">吸</span> (Hi) <span class="highlight">偷</span> (To)。那個人在吸珍珠還偷笑。'
+          },
+          {
+              type: 'date',
+              ja: 'ともだち',
+              kana: '友達',
+              mean: '朋友',
+              emoji: '👫',
+              story: '<span class="highlight">偷</span> (To) <span class="highlight">摸</span> (Mo) <span class="highlight">打</span> (Da) <span class="highlight">七</span> (Chi)。朋友偷摸我，我打他七下。'
+          },
+          {
+              type: 'date',
+              ja: 'かれ',
+              kana: '彼',
+              mean: '男朋友/他',
+              emoji: '👨',
+              story: '<span class="highlight">咖</span> (Ka) <span class="highlight">哩</span> (Re)。男朋友喜歡吃咖哩。'
+          },
+          {
+              type: 'date',
+              ja: 'かのじょ',
+              kana: '彼女',
+              mean: '女朋友/她',
+              emoji: '👩',
+              story: '<span class="highlight">卡</span> (Ka) <span class="highlight">挪</span> (No) <span class="highlight">酒</span> (Jo)。女朋友把卡在桌上的酒挪開。'
+          },
+          {
+              type: 'date',
+              ja: 'かぞく',
+              kana: '家族',
+              mean: '家人',
+              emoji: '👨‍👩‍👧‍👦',
+              story: '<span class="highlight">卡</span> (Ka) <span class="highlight">走</span> (Zo) <span class="highlight">庫</span> (Ku)。家人把卡拿走，放進金庫。'
+          },
+          {
+              type: 'date',
+              ja: 'ひとりで',
+              kana: '一人で',
+              mean: '一個人',
+              emoji: '🧍',
+              story: '<span class="highlight">吸</span> (Hi) <span class="highlight">偷</span> (To) <span class="highlight">里</span> (Ri)。一個人躲在抽屜裡吸氣。'
+          },
+          {
+              type: 'date',
+              ja: 'せんしゅう',
+              kana: '先週',
+              mean: '上週',
+              emoji: '🔙',
+              story: '<span class="highlight">仙</span> (Sen) <span class="highlight">修</span> (Shuu)。上週去山上仙修。'
+          },
+          {
+              type: 'date',
+              ja: 'こんしゅう',
+              kana: '今週',
+              mean: '這週',
+              emoji: '📅',
+              story: '<span class="highlight">空</span> (Kon) <span class="highlight">虛</span> (Shuu)。這週過得很空虛。'
+          },
+          {
+              type: 'date',
+              ja: 'らいしゅう',
+              kana: '来週',
+              mean: '下週',
+              emoji: '🔜',
+              story: '<span class="highlight">來</span> (Rai) <span class="highlight">修</span> (Shuu)。下週再來修理。'
+          },
+          {
+              type: 'date',
+              ja: 'せんげつ',
+              kana: '先月',
+              mean: '上個月',
+              emoji: '🌙🔙',
+              story: '<span class="highlight">仙</span> (Sen) <span class="highlight">給</span> (Ge) <span class="highlight">粗</span> (Tsu)。上個月神仙給我很粗的繩子。'
+          },
+          {
+              type: 'date',
+              ja: 'こんげつ',
+              kana: '今月',
+              mean: '這個月',
+              emoji: '🌙📅',
+              story: '<span class="highlight">空</span> (Kon) <span class="highlight">給</span> (Ge) <span class="highlight">粗</span> (Tsu)。這個月腦袋空空，只給粗略的計畫。'
+          },
+          {
+              type: 'date',
+              ja: 'らいげつ',
+              kana: '来月',
+              mean: '下個月',
+              emoji: '🌙🔜',
+              story: '<span class="highlight">來</span> (Rai) <span class="highlight">給</span> (Ge) <span class="highlight">粗</span> (Tsu)。下個月再來給你粗繩子。'
+          },
+          {
+              type: 'date',
+              ja: 'きょねん',
+              kana: '去年',
+              mean: '去年',
+              emoji: '🗓️🔙',
+              story: '<span class="highlight">Q</span> (Kyo) <span class="highlight">黏</span> (Nen)。去年吃的QQ糖很黏牙。'
+          },
+          {
+              type: 'date',
+              ja: 'ことし',
+              kana: '今年',
+              mean: '今年',
+              emoji: '🗓️',
+              story: '<span class="highlight">口</span> (Ko) <span class="highlight">偷</span> (To) <span class="highlight">吸</span> (Shi)。今年戴口罩偷偷吸氣。'
+          },
+          {
+              type: 'date',
+              ja: 'らいねん',
+              kana: '来年',
+              mean: '明年',
+              emoji: '🗓️🔜',
+              story: '<span class="highlight">來</span> (Rai) <span class="highlight">黏</span> (Nen)。明年再來黏春聯。'
+          },
+          {
+              type: 'date',
+              ja: 'たんじょうび',
+              kana: '誕生日',
+              mean: '生日',
+              emoji: '🎂',
+              story: '<span class="highlight">湯</span> (Tan) <span class="highlight">酒</span> (Jou) <span class="highlight">必</span> (Bi)。生日一定要喝湯喝酒，是必須的！'
+          }
+      ];
+
+      function renderCards(filterType) {
+          const container = document.getElementById('container');
+          container.innerHTML = '';
+          
+          const filtered = filterType === 'all' 
+              ? vocabData 
+              : vocabData.filter(item => item.type === filterType);
+
+          filtered.forEach(item => {
+              const card = document.createElement('div');
+              card.className = 'card';
+              card.onclick = function() {
+                  this.classList.toggle('flipped');
+                  if(this.classList.contains('flipped')) {
+                      playAudio(item.ja);
+                  }
+              };
+
+              card.innerHTML = `
+                  <div class="card-inner">
+                      <div class="card-face card-front">
+                          <div class="tag">${item.type === 'verb' ? '移動' : item.type === 'vehicle' ? '交通' : '日期'}</div>
+                          <div class="emoji">${item.emoji}</div>
+                          <div class="ja-word">${item.ja}</div>
+                          <div class="ja-kana">${item.kana}</div>
+                          <div style="margin-top:10px; font-size:0.8em; color:#b2bec3;">(點擊翻面)</div>
+                      </div>
+                      <div class="card-face card-back">
+                          <div class="meaning">${item.mean}</div>
+                          <div class="mnemonic-box">
+                              <strong>💡 諧音故事：</strong><br>
+                              ${item.story}
+                          </div>
+                          <div class="audio-icon">🔊</div>
+                      </div>
+                  </div>
+              `;
+              container.appendChild(card);
+          });
+      }
+
+      function filter(type) {
+          document.querySelectorAll('.filter-btn').forEach(btn => {
+              btn.classList.remove('active');
+          });
+          event.target.classList.add('active');
+          renderCards(type);
+      }
+
+      function playAudio(text) {
+          if ('speechSynthesis' in window) {
+              speechSynthesis.cancel();
+              const u = new SpeechSynthesisUtterance(text);
+              u.lang = 'ja-JP';
+              u.rate = 0.9;
+              speechSynthesis.speak(u);
+          }
+      }
+
+      // Initial render
+      renderCards('all');
+
+  </script>
+</body>
+</html>
